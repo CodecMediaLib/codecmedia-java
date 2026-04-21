@@ -2,6 +2,7 @@ package me.tamkungz.codecmedia.internal.audio.flac;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import me.tamkungz.codecmedia.CodecMediaException;
@@ -40,6 +41,41 @@ class FlacParserTest {
         FlacProbeInfo info = FlacParser.parse(flac);
 
         assertEquals(80, info.bitrateKbps()); // 10_000 bytes audio payload over 1 second
+    }
+
+    @Test
+    void shouldRejectNonExactStreamInfoLength() {
+        byte[] flac = createFlacWithInvalidStreamInfoLength(35);
+
+        CodecMediaException ex = assertThrows(CodecMediaException.class, () -> FlacParser.parse(flac));
+        assertTrue(ex.getMessage().contains("expected 34"));
+    }
+
+    @Test
+    void shouldParseFlacAfterLeadingId3v2Tag() throws Exception {
+        byte[] minimal = createMinimalFlac(44100, 2, 16, 44100);
+        byte[] withId3 = prependId3v2Tag(minimal, 0);
+
+        FlacProbeInfo info = FlacParser.parse(withId3);
+
+        assertEquals(44100, info.sampleRate());
+        assertEquals(2, info.channels());
+    }
+
+    @Test
+    void shouldRejectReservedMetadataTypeInVorbisReadPath() {
+        byte[] flac = createFlacWithReservedMetadataType();
+
+        CodecMediaException ex = assertThrows(CodecMediaException.class, () -> FlacParser.readVorbisCommentMetadata(flac));
+        assertEquals("Invalid FLAC metadata block type: 127 is reserved", ex.getMessage());
+    }
+
+    @Test
+    void shouldThrowOnMalformedVorbisCommentBlock() {
+        byte[] flac = createFlacWithMalformedVorbisComment();
+
+        CodecMediaException ex = assertThrows(CodecMediaException.class, () -> FlacParser.readVorbisCommentMetadata(flac));
+        assertTrue(ex.getMessage().contains("Vorbis comment block"));
     }
 
     private static byte[] createMinimalFlac(int sampleRate, int channels, int bitsPerSample, long totalSamples) {
@@ -131,6 +167,49 @@ class FlacParserTest {
         bytes[o + 3] = (byte) (pictureBytes & 0xFF);
 
         // trailing bytes represent encoded audio frames region
+        return bytes;
+    }
+
+    private static byte[] createFlacWithInvalidStreamInfoLength(int streamInfoLength) {
+        byte[] bytes = new byte[4 + 4 + streamInfoLength];
+        bytes[0] = 'f'; bytes[1] = 'L'; bytes[2] = 'a'; bytes[3] = 'C';
+        bytes[4] = (byte) 0x80;
+        bytes[5] = (byte) ((streamInfoLength >>> 16) & 0xFF);
+        bytes[6] = (byte) ((streamInfoLength >>> 8) & 0xFF);
+        bytes[7] = (byte) (streamInfoLength & 0xFF);
+        return bytes;
+    }
+
+    private static byte[] prependId3v2Tag(byte[] payload, int id3BodySize) {
+        int total = 10 + id3BodySize + payload.length;
+        byte[] out = new byte[total];
+        out[0] = 'I'; out[1] = 'D'; out[2] = '3';
+        out[3] = 4; // version 2.4.0
+        out[4] = 0;
+        out[5] = 0;
+        out[6] = (byte) ((id3BodySize >>> 21) & 0x7F);
+        out[7] = (byte) ((id3BodySize >>> 14) & 0x7F);
+        out[8] = (byte) ((id3BodySize >>> 7) & 0x7F);
+        out[9] = (byte) (id3BodySize & 0x7F);
+        System.arraycopy(payload, 0, out, 10 + id3BodySize, payload.length);
+        return out;
+    }
+
+    private static byte[] createFlacWithMalformedVorbisComment() {
+        byte[] bytes = new byte[4 + 4 + 4];
+        bytes[0] = 'f'; bytes[1] = 'L'; bytes[2] = 'a'; bytes[3] = 'C';
+
+        // Last metadata block + VORBIS_COMMENT, but payload is only vendorLen
+        bytes[4] = (byte) 0x84;
+        bytes[5] = 0;
+        bytes[6] = 0;
+        bytes[7] = 4;
+
+        // vendorLen=10 with no bytes following -> malformed
+        bytes[8] = 10;
+        bytes[9] = 0;
+        bytes[10] = 0;
+        bytes[11] = 0;
         return bytes;
     }
 }

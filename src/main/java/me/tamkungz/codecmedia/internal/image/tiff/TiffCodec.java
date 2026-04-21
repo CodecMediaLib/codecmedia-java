@@ -2,12 +2,19 @@ package me.tamkungz.codecmedia.internal.image.tiff;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
 
 import me.tamkungz.codecmedia.CodecMediaException;
 
+/**
+ * TIFF decode/encode bridge backed by {@link ImageIO}.
+ * <p>
+ * Note: standard JDK runtimes may not include TIFF reader/writer SPI by default.
+ * A compatible ImageIO plugin may be required at runtime.
+ */
 public final class TiffCodec {
 
     private TiffCodec() {
@@ -23,6 +30,15 @@ public final class TiffCodec {
             return image;
         } catch (IOException e) {
             throw new CodecMediaException("Failed to decode TIFF: " + input, e);
+        }
+    }
+
+    public static TiffProbeInfo probe(Path input) throws CodecMediaException {
+        try {
+            byte[] bytes = Files.readAllBytes(input);
+            return TiffParser.parse(bytes);
+        } catch (IOException e) {
+            throw new CodecMediaException("Failed to probe TIFF: " + input, e);
         }
     }
 

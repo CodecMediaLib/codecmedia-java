@@ -2,12 +2,19 @@ package me.tamkungz.codecmedia.internal.image.heif;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
 
 import me.tamkungz.codecmedia.CodecMediaException;
 
+/**
+ * HEIF/HEIC/AVIF decode/encode bridge backed by {@link ImageIO}.
+ * <p>
+ * Note: standard JDK runtimes may not include HEIF/AVIF reader/writer SPI by default.
+ * A compatible ImageIO plugin may be required at runtime.
+ */
 public final class HeifCodec {
 
     private HeifCodec() {
@@ -26,6 +33,15 @@ public final class HeifCodec {
         }
     }
 
+    public static HeifProbeInfo probe(Path input) throws CodecMediaException {
+        try {
+            byte[] bytes = Files.readAllBytes(input);
+            return HeifParser.parse(bytes);
+        } catch (IOException e) {
+            throw new CodecMediaException("Failed to probe HEIF: " + input, e);
+        }
+    }
+
     public static void encode(BufferedImage image, Path output, String targetExtension) throws CodecMediaException {
         String formatName = normalizeTargetExtension(targetExtension);
         try {
@@ -39,7 +55,7 @@ public final class HeifCodec {
         }
     }
 
-    private static String normalizeTargetExtension(String extension) throws CodecMediaException {
+    static String normalizeTargetExtension(String extension) throws CodecMediaException {
         if (extension == null) {
             throw new CodecMediaException("HEIF/HEIC target extension is required");
         }
@@ -54,8 +70,7 @@ public final class HeifCodec {
             return "heic";
         }
         if ("avif".equals(value)) {
-            // Route AVIF through the HEIF writer path used by the current runtime integration.
-            return "heif";
+            return "avif";
         }
         throw new CodecMediaException("Unsupported HEIF target extension: " + extension);
     }

@@ -2,6 +2,7 @@ package me.tamkungz.codecmedia.internal.image.png;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
@@ -23,6 +24,15 @@ public final class PngCodec {
             return image;
         } catch (IOException e) {
             throw new CodecMediaException("Failed to decode PNG: " + input, e);
+        }
+    }
+
+    public static PngProbeInfo probe(Path input) throws CodecMediaException {
+        try {
+            byte[] bytes = Files.readAllBytes(input);
+            return PngParser.parse(bytes);
+        } catch (IOException e) {
+            throw new CodecMediaException("Failed to probe PNG: " + input, e);
         }
     }
 

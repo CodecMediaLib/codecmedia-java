@@ -8,7 +8,8 @@ public final class TiffParser {
     }
 
     public static boolean isLikelyTiff(byte[] bytes) {
-        return bytes.length >= 8
+        return bytes != null
+                && bytes.length >= 8
                 && ((bytes[0] == 'I' && bytes[1] == 'I' && bytes[2] == 42 && bytes[3] == 0)
                 || (bytes[0] == 'M' && bytes[1] == 'M' && bytes[2] == 0 && bytes[3] == 42));
     }
@@ -53,6 +54,8 @@ public final class TiffParser {
                     }
                 }
             } else if (tag == 258 && count >= 1) {
+                // For multi-component samples (for example RGB 8/8/8), probe currently
+                // reports the first BitsPerSample component only.
                 Integer v = readTagFirstShortOrLongValue(bytes, type, count, valueOrOffset, littleEndian);
                 if (v != null && v > 0) {
                     bitDepth = v;

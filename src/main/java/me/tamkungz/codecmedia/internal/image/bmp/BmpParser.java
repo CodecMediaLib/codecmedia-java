@@ -8,7 +8,8 @@ public final class BmpParser {
     }
 
     public static boolean isLikelyBmp(byte[] bytes) {
-        return bytes.length >= 26
+        return bytes != null
+                && bytes.length >= 26
                 && bytes[0] == 'B'
                 && bytes[1] == 'M';
     }
@@ -21,6 +22,9 @@ public final class BmpParser {
         int dibHeaderSize = readU32LE(bytes, 14);
         if (dibHeaderSize < 12) {
             throw new CodecMediaException("Unsupported BMP DIB header size: " + dibHeaderSize);
+        }
+        if (14L + dibHeaderSize > bytes.length) {
+            throw new CodecMediaException("BMP DIB header truncated");
         }
 
         int width;
@@ -74,6 +78,7 @@ public final class BmpParser {
     }
 
     private static int readI32LE(byte[] bytes, int offset) throws CodecMediaException {
+        // Signed 32-bit read is represented directly as Java int.
         return readU32LE(bytes, offset);
     }
 }

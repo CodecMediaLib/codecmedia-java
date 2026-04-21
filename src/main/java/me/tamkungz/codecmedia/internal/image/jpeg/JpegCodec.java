@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
@@ -25,6 +26,15 @@ public final class JpegCodec {
             return image;
         } catch (IOException e) {
             throw new CodecMediaException("Failed to decode JPEG: " + input, e);
+        }
+    }
+
+    public static JpegProbeInfo probe(Path input) throws CodecMediaException {
+        try {
+            byte[] bytes = Files.readAllBytes(input);
+            return JpegParser.parse(bytes);
+        } catch (IOException e) {
+            throw new CodecMediaException("Failed to probe JPEG: " + input, e);
         }
     }
 

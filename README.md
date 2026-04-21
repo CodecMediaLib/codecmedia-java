@@ -49,7 +49,7 @@ CodecMedia is a Java library for media probing, validation, metadata persistence
 - In-Java extraction and conversion file operations
 - Image-to-image conversion in Java for: `png`, `jpg`/`jpeg`, `webp`, `bmp`, `tif`/`tiff`, `heic`/`heif`/`avif`
 - Playback API with dry-run support, internal Java sampled backend for WAV/AIFF family, and optional desktop-open fallback
-- Conversion hub routing with explicit unsupported routes, a real `wav <-> pcm` path (`WAV -> PCM` data-chunk extraction, `PCM -> WAV` wrapping), JDK Java Sound audio targets (`wav`/`aiff`/`au`), and MP4/MOV audio-track remux to `m4a` when codec-compatible
+- Conversion hub routing with explicit unsupported routes, a real `wav <-> pcm` path (`WAV -> PCM` data-chunk extraction, `PCM -> WAV` wrapping), MP3 decode routes (`mp3 -> pcm`/`mp3 -> wav`) with selectable decoder backend (`decoder=javasound` default, `decoder=pure-java`/`decoder=layer3` experimental), JDK Java Sound audio targets (`wav`/`aiff`/`au`), and MP4/MOV audio-track remux to `m4a` when codec-compatible
 
 ## API Behavior Summary
 
@@ -67,11 +67,12 @@ CodecMedia is a Java library for media probing, validation, metadata persistence
 - Current probing focuses on **technical media info** (mime/type/streams/basic tags).
 - Probe routing now performs a lightweight header-prefix sniff before full decode to reduce unnecessary full-file reads for clearly unsupported/unknown inputs.
 - `readMetadata` supports embedded metadata for WAV (LIST/INFO), AIFF text chunks, MP3 (ID3v1), and OGG/FLAC comments; it is **not** a full embedded tag extractor for advanced tag families (for example ID3v2 APIC/album art).
-- Audio-to-audio conversion is partially implemented with JDK Java Sound targets (`wav`/`aiff`/`au`); general compressed-target transcode cases (for example `mp3 -> ogg`) are still not implemented.
-- The currently implemented audio route is `wav <-> pcm`:
-  - `wav -> pcm`: extracts raw PCM payload from WAV `data` chunk
-  - `pcm -> wav`: wraps PCM into PCM WAV container
-  - Optional PCM->WAV preset tuning via `ConversionOptions.preset`, for example: `sr=22050,ch=1,bits=16`
+- Audio-to-audio conversion is partially implemented with JDK Java Sound targets (`wav`/`aiff`/`au`) plus decode-focused routes (`wav <-> pcm`, `mp3 -> pcm`, `mp3 -> wav`); general compressed-target transcode cases (for example `mp3 -> ogg`) are still not implemented.
+- Implemented decode-focused audio routes:
+- `wav -> pcm`: extracts raw PCM payload from WAV `data` chunk
+- `pcm -> wav`: wraps PCM into PCM WAV container
+- Optional PCM->WAV preset tuning via `ConversionOptions.preset`, for example: `sr=22050,ch=1,bits=16`
+- `mp3 -> pcm` / `mp3 -> wav`: decodes MP3 via selectable backend using `ConversionOptions.preset`, for example: `decoder=javasound` (default), `decoder=pure-java`, `decoder=layer3`
 - Container/unknown conversion routes are intentionally unsupported unless explicitly mapped by the conversion route resolver.
 - TIFF probe currently reads the **first IFD/image** only (multi-page TIFF traversal is not implemented in probe mode).
 - WebP probe currently reports `bitDepth` as an assumed default (`8`) for `VP8`/`VP8L`/`VP8X` unless deeper profile metadata parsing is added.

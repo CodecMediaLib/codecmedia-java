@@ -8,6 +8,12 @@ import javax.imageio.ImageIO;
 
 import me.tamkungz.codecmedia.CodecMediaException;
 
+/**
+ * WebP image decode/encode bridge backed by {@link ImageIO}.
+ * <p>
+ * Note: standard JDK runtimes do not always include a WebP reader/writer SPI.
+ * A compatible plugin must be present in the runtime for decode/encode to work.
+ */
 public final class WebpCodec {
 
     private WebpCodec() {
@@ -17,7 +23,7 @@ public final class WebpCodec {
         try {
             BufferedImage image = ImageIO.read(input.toFile());
             if (image == null) {
-                throw new CodecMediaException("Unable to decode WebP: " + input);
+                throw new CodecMediaException("No WEBP reader available in ImageIO runtime");
             }
             validateDecodedImage(image, input);
             return image;

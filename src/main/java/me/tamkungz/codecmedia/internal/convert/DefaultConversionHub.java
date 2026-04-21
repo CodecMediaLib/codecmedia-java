@@ -7,6 +7,7 @@ public final class DefaultConversionHub implements ConversionHub {
 
     private final MediaConverter passthroughConverter = new SameFormatCopyConverter();
     private final MediaConverter wavPcmConverter = new WavPcmConverter();
+    private final MediaConverter mp3PcmWavConverter = new Mp3PcmWavConverter();
     private final MediaConverter videoToAudioConverter = new UnsupportedRouteConverter(
             "video->audio conversion is not implemented yet (planned conversion hub path)"
     );
@@ -32,6 +33,11 @@ public final class DefaultConversionHub implements ConversionHub {
             case AUDIO_TO_IMAGE -> audioToImageConverter.convert(request);
             case VIDEO_TO_VIDEO -> videoToVideoConverter.convert(request);
             case AUDIO_TO_AUDIO -> {
+                boolean mp3DecodePair = "mp3".equals(request.sourceExtension())
+                        && ("pcm".equals(request.targetExtension()) || "wav".equals(request.targetExtension()));
+                if (mp3DecodePair) {
+                    yield mp3PcmWavConverter.convert(request);
+                }
                 boolean wavPcmPair = ("wav".equals(request.sourceExtension()) && "pcm".equals(request.targetExtension()))
                         || ("pcm".equals(request.sourceExtension()) && "wav".equals(request.targetExtension()));
                 if (wavPcmPair) {

@@ -7,12 +7,14 @@ import me.tamkungz.codecmedia.CodecMediaException;
 public final class HeifParser {
 
     private static final int FULL_BOX_HEADER_SIZE = 4;
+    private static final int MAX_BOX_SEARCH_DEPTH = 64;
 
     private HeifParser() {
     }
 
     public static boolean isLikelyHeif(byte[] bytes) {
-        return bytes.length >= 12
+        return bytes != null
+                && bytes.length >= 12
                 && readAscii(bytes, 4, 4).equals("ftyp")
                 && isHeifBrand(readAscii(bytes, 8, 4));
     }
@@ -73,6 +75,10 @@ public final class HeifParser {
         }
         byte[] bytes = pixi.bytes();
         int payloadOffset = pixi.payloadOffset();
+        int version = bytes[payloadOffset] & 0xFF;
+        if (version != 0) {
+            return null;
+        }
         int dataOffset = payloadOffset + FULL_BOX_HEADER_SIZE;
         if (dataOffset + 1 > pixi.boxEnd()) {
             return null;
@@ -92,51 +98,17 @@ public final class HeifParser {
     }
 
     private static BoxData findBoxData(byte[] bytes, String boxType) {
-        int offset = 0;
-        while (offset + 8 <= bytes.length) {
-            int start = offset;
-            long size = readU32AsLong(bytes, offset);
-            String type = readAscii(bytes, offset + 4, 4);
-            int headerSize = 8;
-
-            if (size == 1L) {
-                if (offset + 16 > bytes.length) {
-                    break;
-                }
-                size = readU64AsLong(bytes, offset + 8);
-                headerSize = 16;
-            } else if (size == 0L) {
-                size = bytes.length - offset;
-            }
-
-            if (size < headerSize) {
-                break;
-            }
-
-            long endLong = offset + size;
-            if (endLong > bytes.length || endLong <= offset) {
-                break;
-            }
-            int end = (int) endLong;
-
-            if (boxType.equals(type)) {
-                return new BoxData(bytes, start, offset + headerSize, end);
-            }
-
-            if (isContainerType(type)) {
-                BoxData nested = findBoxData(bytes, offset + headerSize, end, boxType);
-                if (nested != null) {
-                    return nested;
-                }
-            }
-
-            offset = end;
-        }
-        return null;
+        return findBoxData(bytes, 0, bytes.length, boxType, 0);
     }
 
-    private static BoxData findBoxData(byte[] bytes, int startOffset, int endOffset, String boxType) {
-        int offset = startOffset;
+    private static BoxData findBoxData(byte[] bytes, int startOffset, int endOffset, String boxType, int depth) {
+        if (depth > MAX_BOX_SEARCH_DEPTH) {
+            return null;
+        }
+        int offset = 0;
+        if (startOffset > 0) {
+            offset = startOffset;
+        }
         while (offset + 8 <= endOffset) {
             int start = offset;
             long size = readU32AsLong(bytes, offset);
@@ -157,24 +129,24 @@ public final class HeifParser {
                 break;
             }
 
-            long boxEndLong = offset + size;
-            if (boxEndLong > endOffset || boxEndLong <= offset) {
+            long endLong = offset + size;
+            if (endLong > endOffset || endLong <= offset) {
                 break;
             }
-            int boxEnd = (int) boxEndLong;
+            int end = (int) endLong;
 
             if (boxType.equals(type)) {
-                return new BoxData(bytes, start, offset + headerSize, boxEnd);
+                return new BoxData(bytes, start, offset + headerSize, end);
             }
 
             if (isContainerType(type)) {
-                BoxData nested = findBoxData(bytes, offset + headerSize, boxEnd, boxType);
+                BoxData nested = findBoxData(bytes, offset + headerSize, end, boxType, depth + 1);
                 if (nested != null) {
                     return nested;
                 }
             }
 
-            offset = boxEnd;
+            offset = end;
         }
         return null;
     }

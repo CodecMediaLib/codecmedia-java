@@ -13,6 +13,9 @@ public final class PngParser {
     }
 
     public static boolean isLikelyPng(byte[] bytes) {
+        if (bytes == null) {
+            return false;
+        }
         if (bytes.length < PNG_SIGNATURE.length) {
             return false;
         }
@@ -56,6 +59,10 @@ public final class PngParser {
         if (!isValidColorType(colorType)) {
             throw new CodecMediaException("PNG has invalid color type: " + colorType);
         }
+        if (!isValidBitDepthColorTypeCombination(bitDepth, colorType)) {
+            throw new CodecMediaException("PNG has invalid bit depth/color type combination: bitDepth="
+                    + bitDepth + ", colorType=" + colorType);
+        }
 
         return new PngProbeInfo(width, height, bitDepth, colorType);
     }
@@ -66,6 +73,17 @@ public final class PngParser {
 
     private static boolean isValidColorType(int colorType) {
         return colorType == 0 || colorType == 2 || colorType == 3 || colorType == 4 || colorType == 6;
+    }
+
+    private static boolean isValidBitDepthColorTypeCombination(int bitDepth, int colorType) {
+        return switch (colorType) {
+            case 0 -> bitDepth == 1 || bitDepth == 2 || bitDepth == 4 || bitDepth == 8 || bitDepth == 16;
+            case 2 -> bitDepth == 8 || bitDepth == 16;
+            case 3 -> bitDepth == 1 || bitDepth == 2 || bitDepth == 4 || bitDepth == 8;
+            case 4 -> bitDepth == 8 || bitDepth == 16;
+            case 6 -> bitDepth == 8 || bitDepth == 16;
+            default -> false;
+        };
     }
 
     private static int readBeInt(byte[] bytes, int offset) throws CodecMediaException {

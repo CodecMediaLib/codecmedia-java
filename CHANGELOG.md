@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-04-21
+
+### Added
+- Added MP3 decode component [`Mp3Decoder`](src/main/java/me/tamkungz/codecmedia/internal/audio/mp3/Mp3Decoder.java) to produce PCM signed 16-bit little-endian output via Java Sound runtime SPI.
+- Added optional experimental pure-Java MP3 decode backend [`PureJavaMp3Decoder`](src/main/java/me/tamkungz/codecmedia/internal/audio/mp3/PureJavaMp3Decoder.java) with MP3 frame-based PCM timeline synthesis outputting PCM S16LE.
+- Added MP3 conversion route handler [`Mp3PcmWavConverter`](src/main/java/me/tamkungz/codecmedia/internal/convert/Mp3PcmWavConverter.java) for `mp3 -> pcm` and `mp3 -> wav` workflows.
+- Added conversion regression coverage in [`Mp3PcmWavConverterTest`](src/test/java/me/tamkungz/codecmedia/internal/convert/Mp3PcmWavConverterTest.java) for both target formats with runtime-safe assertions.
+
+### Changed
+- Extended MP3 conversion preset handling in [`Mp3PcmWavConverter`](src/main/java/me/tamkungz/codecmedia/internal/convert/Mp3PcmWavConverter.java) with decoder token selection: `decoder=javasound` (default), `decoder=pure-java`, and alias `decoder=layer3`, including explicit unsupported-token errors.
+- Updated audio conversion route wiring in [`DefaultConversionHub`](src/main/java/me/tamkungz/codecmedia/internal/convert/DefaultConversionHub.java) to prioritize MP3 decode routes (`mp3 -> pcm`, `mp3 -> wav`) before generic Java Sound audio transcoding.
+- Hardened FLAC parsing in [`FlacParser`](src/main/java/me/tamkungz/codecmedia/internal/audio/flac/FlacParser.java) with strict STREAMINFO block length validation, reserved metadata-type checks in Vorbis read path, ID3v2-leading FLAC detection, and explicit malformed Vorbis-comment errors.
+- Hardened WebP probing in [`WebpParser`](src/main/java/me/tamkungz/codecmedia/internal/image/webp/WebpParser.java) with null-safe RIFF checks, declared-size bounds validation, chunk-payload bounds validation, VP8 key-frame validation, and clearer variant-specific error messages.
+- Clarified runtime requirements in [`WebpCodec`](src/main/java/me/tamkungz/codecmedia/internal/image/webp/WebpCodec.java) for ImageIO WebP reader/writer SPI availability.
+- Hardened BMP probing in [`BmpParser`](src/main/java/me/tamkungz/codecmedia/internal/image/bmp/BmpParser.java) with null-safe signature checks and explicit DIB header truncation validation (`14 + dibHeaderSize <= file length`).
+- Added public BMP probe entrypoint [`BmpCodec.probe()`](src/main/java/me/tamkungz/codecmedia/internal/image/bmp/BmpCodec.java) to expose lightweight header probing through codec API.
+- Hardened PNG probing in [`PngParser`](src/main/java/me/tamkungz/codecmedia/internal/image/png/PngParser.java) with null-safe signature checks and strict PNG-spec bitDepth/colorType combination validation.
+- Added public PNG probe entrypoint [`PngCodec.probe()`](src/main/java/me/tamkungz/codecmedia/internal/image/png/PngCodec.java) to expose lightweight header probing through codec API.
+- Hardened JPEG signature sniffing in [`JpegParser.isLikelyJpeg()`](src/main/java/me/tamkungz/codecmedia/internal/image/jpeg/JpegParser.java) to accept SOI-based detection (`FF D8`) with null-safe handling.
+- Added public JPEG probe entrypoint [`JpegCodec.probe()`](src/main/java/me/tamkungz/codecmedia/internal/image/jpeg/JpegCodec.java) to expose header-based JPEG probing through codec API.
+- Hardened TIFF signature sniffing in [`TiffParser.isLikelyTiff()`](src/main/java/me/tamkungz/codecmedia/internal/image/tiff/TiffParser.java) with null-safe handling, and documented that probe-level `BitsPerSample` reports the first component value.
+- Added public TIFF probe entrypoint [`TiffCodec.probe()`](src/main/java/me/tamkungz/codecmedia/internal/image/tiff/TiffCodec.java) and clarified runtime ImageIO TIFF plugin requirements in codec documentation.
+- Hardened HEIF parsing in [`HeifParser`](src/main/java/me/tamkungz/codecmedia/internal/image/heif/HeifParser.java) with null-safe signature checks, `pixi` FullBox version validation (`version == 0`), and bounded recursive box traversal depth.
+- Added public HEIF probe entrypoint [`HeifCodec.probe()`](src/main/java/me/tamkungz/codecmedia/internal/image/heif/HeifCodec.java), clarified runtime ImageIO HEIF/AVIF plugin requirements, and corrected AVIF format mapping to `avif` during encode target normalization.
+- Bumped artifact version to `1.2.0` in [`pom.xml`](pom.xml).
+
+### Verified
+- Confirmed MP3 decode conversion path and tests with `mvn -Dtest=Mp3PcmWavConverterTest test`.
+- Confirmed pure-Java MP3 decoder regression coverage with `mvn -Dtest=PureJavaMp3DecoderTest test`.
+- Confirmed FLAC parser hardening with `mvn -Dtest=FlacParserTest test`.
+- Confirmed WebP parser regression coverage with `mvn -Dtest=WebpParserTest test`.
+- Confirmed BMP probe/parser coverage with `mvn -Dtest=BmpParserTest test`.
+- Confirmed PNG probe/parser coverage with `mvn -Dtest=PngParserTest test`.
+- Confirmed JPEG probe/parser coverage with `mvn -Dtest=JpegParserTest test`.
+- Confirmed TIFF probe/parser coverage with `mvn -Dtest=TiffParserTest test`.
+- Confirmed HEIF probe/parser coverage with `mvn -Dtest=HeifParserTest test`.
+
 ## [1.1.5] - 2026-03-17
 
 ### Added
