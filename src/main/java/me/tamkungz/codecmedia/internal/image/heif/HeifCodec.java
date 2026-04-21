@@ -47,8 +47,8 @@ public final class HeifCodec {
         try {
             boolean written = ImageIO.write(image, formatName, output.toFile());
             if (!written) {
-                throw new CodecMediaException("No " + formatName.toUpperCase(java.util.Locale.ROOT)
-                        + " writer available in ImageIO runtime");
+                throw new CodecMediaException("No HEIF writer available in ImageIO runtime"
+                        + " (target format: " + formatName.toUpperCase(java.util.Locale.ROOT) + ")");
             }
         } catch (IOException e) {
             throw new CodecMediaException("Failed to encode HEIF/HEIC: " + output, e);
