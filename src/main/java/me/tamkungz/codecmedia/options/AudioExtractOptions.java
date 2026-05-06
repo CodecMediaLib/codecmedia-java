@@ -7,7 +7,7 @@ public record AudioExtractOptions(
 ) {
 
     public static AudioExtractOptions defaults() {
-        return new AudioExtractOptions("m4a", 192, 0);
+        return new AudioExtractOptions(null, 192, 0);
     }
 
     public static AudioExtractOptions defaults(String targetFormat) {

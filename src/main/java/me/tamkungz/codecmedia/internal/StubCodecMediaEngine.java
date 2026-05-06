@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -638,7 +639,7 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
             try {
                 byte[] wavBytes = Files.readAllBytes(input);
                 byte[] withMetadata = WavParser.writeInfoMetadata(wavBytes, metadata.entries());
-                Files.write(input, withMetadata);
+                writeFileAtomically(input, withMetadata);
                 deleteSidecarIfExists(input);
                 return;
             } catch (IOException e) {
@@ -650,7 +651,7 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
             try {
                 byte[] aiffBytes = Files.readAllBytes(input);
                 byte[] withMetadata = AiffParser.writeTextMetadata(aiffBytes, metadata.entries());
-                Files.write(input, withMetadata);
+                writeFileAtomically(input, withMetadata);
                 deleteSidecarIfExists(input);
                 return;
             } catch (IOException e) {
@@ -662,7 +663,7 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
             try {
                 byte[] mp3Bytes = Files.readAllBytes(input);
                 byte[] withTag = Mp3Id3v1Tag.write(mp3Bytes, metadata.entries());
-                Files.write(input, withTag);
+                writeFileAtomically(input, withTag);
                 deleteSidecarIfExists(input);
                 return;
             } catch (IOException e) {
@@ -677,8 +678,8 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
             properties.setProperty(entry.getKey(), entry.getValue());
         }
 
-        try (OutputStream out = Files.newOutputStream(sidecar)) {
-            properties.store(out, "CodecMedia metadata sidecar");
+        try {
+            writePropertiesAtomically(sidecar, properties);
         } catch (IOException e) {
             throw new CodecMediaException("Failed to write metadata sidecar: " + sidecar, e);
         }
@@ -695,9 +696,6 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
         AudioExtractOptions effective = options != null
                 ? options
                 : AudioExtractOptions.defaults(normalizeExtension(probe.extension()));
-        if (effective.targetFormat() == null || effective.targetFormat().isBlank()) {
-            throw new CodecMediaException("AudioExtractOptions.targetFormat is required");
-        }
 
         if (probe.mediaType() != MediaType.AUDIO) {
             throw new CodecMediaException("Input is not an audio file: " + input);
@@ -705,6 +703,9 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
 
         String sourceExtension = normalizeExtension(probe.extension());
         String requestedExtension = normalizeExtension(effective.targetFormat());
+        if (requestedExtension.isBlank()) {
+            requestedExtension = sourceExtension;
+        }
         if (!requestedExtension.equals(sourceExtension)) {
             throw new CodecMediaException(
                     "Audio extraction does not support format conversion yet. Requested format '" + requestedExtension
@@ -738,6 +739,13 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
             throw new CodecMediaException("ConversionOptions.targetFormat is required");
         }
         String requestedExtension = normalizeExtension(effective.targetFormat());
+        String outputExtension = normalizeExtension(extractExtension(output));
+        if (!outputExtension.isBlank() && !requestedExtension.equals(outputExtension)) {
+            throw new CodecMediaException(
+                    "Output extension must match target format: expected ." + requestedExtension
+                            + " but got ." + outputExtension
+            );
+        }
 
         ProbeResult sourceProbe = probe(input);
         me.tamkungz.codecmedia.model.MediaType targetMediaType = mediaTypeByExtension(requestedExtension);
@@ -934,6 +942,9 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
         if (!Files.exists(input)) {
             throw new CodecMediaException("File does not exist: " + input);
         }
+        if (!Files.isRegularFile(input)) {
+            throw new CodecMediaException("Input must be a regular file: " + input);
+        }
     }
 
     private static String extractExtension(Path input) {
@@ -1014,6 +1025,56 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
         Files.deleteIfExists(metadataSidecarPath(input));
     }
 
+    private static void writeFileAtomically(Path target, byte[] bytes) throws IOException {
+        Path parent = target.getParent();
+        if (parent == null) {
+            parent = Path.of(".").toAbsolutePath().normalize();
+        }
+        Files.createDirectories(parent);
+
+        Path temp = Files.createTempFile(parent, target.getFileName().toString(), ".tmp");
+        boolean moved = false;
+        try {
+            Files.write(temp, bytes, StandardOpenOption.TRUNCATE_EXISTING);
+            try {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(temp);
+            }
+        }
+    }
+
+    private static void writePropertiesAtomically(Path target, Properties properties) throws IOException {
+        Path parent = target.getParent();
+        if (parent == null) {
+            parent = Path.of(".").toAbsolutePath().normalize();
+        }
+        Files.createDirectories(parent);
+
+        Path temp = Files.createTempFile(parent, target.getFileName().toString(), ".tmp");
+        boolean moved = false;
+        try (OutputStream out = Files.newOutputStream(temp, StandardOpenOption.TRUNCATE_EXISTING)) {
+            properties.store(out, "CodecMedia metadata sidecar");
+        }
+        try {
+            try {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(temp);
+            }
+        }
+    }
+
     private static boolean isCoreMetadataKey(String key) {
         return "mimeType".equals(key) || "extension".equals(key) || "mediaType".equals(key);
     }
@@ -1079,13 +1140,21 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
         public void play(Path input) throws CodecMediaException {
             try (AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(input.toFile())) {
                 Clip clip = AudioSystem.getClip();
-                clip.open(audioInputStream);
-                clip.addLineListener(event -> {
-                    if (event.getType() == LineEvent.Type.STOP || event.getType() == LineEvent.Type.CLOSE) {
+                boolean started = false;
+                try {
+                    clip.open(audioInputStream);
+                    clip.addLineListener(event -> {
+                        if (event.getType() == LineEvent.Type.STOP || event.getType() == LineEvent.Type.CLOSE) {
+                            clip.close();
+                        }
+                    });
+                    clip.start();
+                    started = true;
+                } finally {
+                    if (!started) {
                         clip.close();
                     }
-                });
-                clip.start();
+                }
             } catch (UnsupportedAudioFileException | LineUnavailableException | IOException | RuntimeException e) {
                 throw new CodecMediaException("Java sampled playback failed for " + input + ": " + e.getMessage(), e);
             }

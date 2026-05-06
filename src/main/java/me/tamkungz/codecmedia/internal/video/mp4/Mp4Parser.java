@@ -130,7 +130,11 @@ public final class Mp4Parser {
                 }
             }
 
-            offset += (int) boxSize;
+            long nextOffset = (long) offset + boxSize;
+            if (nextOffset > bytes.length || nextOffset > Integer.MAX_VALUE) {
+                throw new CodecMediaException("MP4 box size overflow for box: " + boxType);
+            }
+            offset = (int) nextOffset;
         }
 
         String displayAspectRatio = null;

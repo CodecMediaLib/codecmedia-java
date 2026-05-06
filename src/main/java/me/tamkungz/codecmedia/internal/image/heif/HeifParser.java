@@ -140,7 +140,11 @@ public final class HeifParser {
             }
 
             if (isContainerType(type)) {
-                BoxData nested = findBoxData(bytes, offset + headerSize, end, boxType, depth + 1);
+                int childStart = offset + headerSize;
+                if ("meta".equals(type) && childStart + FULL_BOX_HEADER_SIZE <= end) {
+                    childStart += FULL_BOX_HEADER_SIZE;
+                }
+                BoxData nested = findBoxData(bytes, childStart, end, boxType, depth + 1);
                 if (nested != null) {
                     return nested;
                 }

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-05-07
+
+### Changed
+- Updated metadata write flow in [`StubCodecMediaEngine`](src/main/java/me/tamkungz/codecmedia/internal/StubCodecMediaEngine.java) to use atomic temp-file replace for embedded WAV/AIFF/MP3 writes and sidecar property writes.
+- Aligned extract-audio defaults in [`AudioExtractOptions`](src/main/java/me/tamkungz/codecmedia/options/AudioExtractOptions.java) and [`StubCodecMediaEngine.extractAudio()`](src/main/java/me/tamkungz/codecmedia/internal/StubCodecMediaEngine.java) so blank/default target format resolves to source extension.
+- Added output-extension/target-format consistency guard in [`StubCodecMediaEngine.convert()`](src/main/java/me/tamkungz/codecmedia/internal/StubCodecMediaEngine.java) to prevent mismatched container/extension outputs.
+- Strengthened input validation in [`StubCodecMediaEngine.ensureExists()`](src/main/java/me/tamkungz/codecmedia/internal/StubCodecMediaEngine.java) by requiring a regular file path.
+- Hardened HEIF nested box traversal in [`HeifParser`](src/main/java/me/tamkungz/codecmedia/internal/image/heif/HeifParser.java) by skipping the `meta` FullBox header before recursive child-box scan.
+- Added box-size overflow guards in [`Mp4Parser`](src/main/java/me/tamkungz/codecmedia/internal/video/mp4/Mp4Parser.java) and [`MovParser`](src/main/java/me/tamkungz/codecmedia/internal/video/mov/MovParser.java) before advancing parse cursor.
+- Hardened Java sampled playback cleanup in [`StubCodecMediaEngine`](src/main/java/me/tamkungz/codecmedia/internal/StubCodecMediaEngine.java) to close `Clip` on startup failure paths.
+- Bumped artifact version to `1.2.1` in [`pom.xml`](pom.xml).
+
+### Verified
+- Confirmed regression suite stability with `mvn test`.
+
 ## [1.2.0] - 2026-04-21
 
 ### Added

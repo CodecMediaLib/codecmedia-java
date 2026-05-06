@@ -128,7 +128,11 @@ public final class MovParser {
                 }
             }
 
-            offset += (int) boxSize;
+            long nextOffset = (long) offset + boxSize;
+            if (nextOffset > bytes.length || nextOffset > Integer.MAX_VALUE) {
+                throw new CodecMediaException("MOV box size overflow for box: " + boxType);
+            }
+            offset = (int) nextOffset;
         }
 
         String displayAspectRatio = null;
