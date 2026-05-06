@@ -804,6 +804,9 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
 
     @Override
     public ValidationResult validate(Path input, ValidationOptions options) {
+        if (input == null) {
+            return new ValidationResult(false, List.of(), List.of("Input file is required"));
+        }
         ValidationOptions effective = options != null ? options : ValidationOptions.defaults();
         boolean exists = Files.exists(input);
         if (!exists) {
@@ -925,13 +928,23 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
     }
 
     private static void ensureExists(Path input) throws CodecMediaException {
+        if (input == null) {
+            throw new CodecMediaException("Input file is required");
+        }
         if (!Files.exists(input)) {
             throw new CodecMediaException("File does not exist: " + input);
         }
     }
 
     private static String extractExtension(Path input) {
-        String name = input.getFileName().toString();
+        if (input == null) {
+            return "";
+        }
+        Path fileName = input.getFileName();
+        if (fileName == null) {
+            return "";
+        }
+        String name = fileName.toString();
         int dotIndex = name.lastIndexOf('.');
         if (dotIndex < 0 || dotIndex == name.length() - 1) {
             return "";
@@ -1022,6 +1035,9 @@ public final class StubCodecMediaEngine implements CodecMediaEngine {
     }
 
     private static String normalizeExtension(String format) {
+        if (format == null) {
+            return "";
+        }
         String value = format.trim().toLowerCase(Locale.ROOT);
         return value.startsWith(".") ? value.substring(1) : value;
     }
