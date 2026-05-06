@@ -12,6 +12,7 @@ import javax.imageio.ImageIO;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -82,6 +83,21 @@ class CodecMediaFacadeTest {
 
         var result = engine.validate(missing, null);
         assertTrue(result.errors().stream().anyMatch(e -> e.contains("does not exist")));
+    }
+
+    @Test
+    void validate_shouldFailWhenInputIsNull() throws Exception {
+        CodecMediaEngine engine = CodecMedia.createDefault();
+        var result = engine.validate(null, null);
+        assertFalse(result.valid());
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains("Input file is required")));
+    }
+
+    @Test
+    void probe_shouldRejectNullInputPath() {
+        CodecMediaEngine engine = CodecMedia.createDefault();
+        CodecMediaException ex = assertThrows(CodecMediaException.class, () -> engine.probe(null));
+        assertTrue(ex.getMessage().contains("Input file is required"));
     }
 
     @Test
