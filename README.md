@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://codecmedia.tamkungz.me/CodecMedia_Full_Logo.png" width="50%" alt="CodecMedia Logo">
+</p>
+
 # CodecMedia
 
 [![MvnRepository](https://badges.mvnrepository.com/badge/me.tamkungz.codecmedia/codecmedia/badge.svg?label=MvnRepository)](https://mvnrepository.com/artifact/me.tamkungz.codecmedia/codecmedia)
@@ -6,122 +10,442 @@
 [![Java](https://img.shields.io/badge/Java-17%2B-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9%2B-C71A36?logo=apachemaven&logoColor=white)](https://maven.apache.org/)
 
-CodecMedia is a Java library for media probing, validation, metadata persistence (embedded WAV/AIFF/MP3 where supported with sidecar fallback for other formats), audio extraction, playback workflow handling, and conversion routing.
+CodecMedia is a Java 17 library for inspecting and handling media files with no runtime dependencies declared in the Maven project.
 
-<p align="center">
-  <img src="https://codecmedia.tamkungz.me/CodecMedia_Full_Logo.png" width="70%" alt="CodecMedia Logo">
-</p>
+The current implementation focuses on:
 
-## What can you do with CodecMedia?
+- Media probing for selected audio, image, and video/container formats
+- File validation with optional strict parser checks
+- Basic metadata read/write workflows
+- Limited conversion routes that are implemented in Java or through JDK APIs
+- Playback workflow routing for Java Sound and desktop-open use cases
 
-- Extract audio from video in 3 lines
-- Validate media files before upload
-- Read metadata (duration, bitrate, format)
-- Build media pipelines in pure Java
+CodecMedia is not a complete transcoding framework. Unsupported routes fail explicitly instead of silently shelling out to external tools.
 
-## Approaches
-- Zero-Dependency
-- Self-Contained
-- Multi-Platform
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Current Status](#current-status)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Supported Features](#supported-features)
+- [Limitations](#limitations)
+- [Development](#development)
+- [Testing](#testing)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Overview
+
+Use CodecMedia when you need a small Java API for common media-file checks and simple processing tasks.
+
+The public entry point is `CodecMedia.createDefault()`, which returns a `CodecMediaEngine`.
+
+Main API methods:
+
+- `get(Path)` - alias for `probe(Path)`
+- `probe(Path)` - detect media type, MIME type, extension, duration, streams, and format-specific tags
+- `validate(Path, ValidationOptions)` - validate file existence, size limits, and optional strict parser checks
+- `readMetadata(Path)` - read base probe metadata plus supported embedded or sidecar metadata
+- `writeMetadata(Path, Metadata)` - write supported embedded metadata, or a sidecar file when embedded writes are not supported
+- `extractAudio(Path, Path, AudioExtractOptions)` - copy supported audio input into an output directory without transcoding
+- `convert(Path, Path, ConversionOptions)` - run an implemented conversion route
+- `play(Path, PlaybackOptions)` - attempt dry-run, Java sampled playback, or desktop-open playback
 
 ## Features
 
-- Media engine facade via `CodecMedia.createDefault()`
-- Probing support for:
-  - MP3
-  - OGG/Vorbis/Opus
-  - WAV (RIFF/WAVE)
-  - AIFF/AIF/AIFC (COMM-based parsing)
-  - M4A (MP4 audio profile)
-  - FLAC (STREAMINFO parsing)
-  - PNG
-  - JPEG
-  - WebP
-  - BMP
-  - TIFF
-  - HEIC/HEIF/AVIF (basic BMFF parsing)
-  - MOV (QuickTime container parsing)
-  - MP4 (basic ISO BMFF parsing)
-  - WebM (EBML container parsing)
-- Validation with size limits and strict parser checks for MP3/OGG/WAV/AIFF/FLAC/PNG/JPEG/WebP/BMP/TIFF/HEIC/HEIF/AVIF/MOV/MP4/WebM
-- MOV/MP4/WebM probe tags now include richer video metadata when present (for example `displayAspectRatio`, `bitDepth`, `videoBitrateKbps`, `audioBitrateKbps`)
-- Metadata read/write with embedded WAV LIST/INFO, AIFF text chunks (`NAME`/`AUTH`/`(c) `/`ANNO`), and MP3 ID3v1 support, plus sidecar persistence (`.codecmedia.properties`) for non-embedded fallback/compatibility paths
-- In-Java extraction and conversion file operations
-- Image-to-image conversion in Java for: `png`, `jpg`/`jpeg`, `webp`, `bmp`, `tif`/`tiff`, `heic`/`heif`/`avif`
-- Playback API with dry-run support, internal Java sampled backend for WAV/AIFF family, and optional desktop-open fallback
-- Conversion hub routing with explicit unsupported routes, a real `wav <-> pcm` path (`WAV -> PCM` data-chunk extraction, `PCM -> WAV` wrapping), MP3 decode routes (`mp3 -> pcm`/`mp3 -> wav`) with selectable decoder backend (`decoder=javasound` default, `decoder=pure-java`/`decoder=layer3` experimental), JDK Java Sound audio targets (`wav`/`aiff`/`au`), and MP4/MOV audio-track remux to `m4a` when codec-compatible
+- Java 17 API using `Path` and Java records
+- Maven artifact: `me.tamkungz.codecmedia:codecmedia:1.2.1`
+- No runtime dependencies declared in `pom.xml`
+- Parser-backed probing for selected media formats
+- Strict validation for supported parsers
+- Embedded metadata support for selected audio formats
+- Sidecar metadata fallback using `.codecmedia.properties`
+- Conversion hub with explicit route handling
+- CI coverage for Java 17 and Java 21
 
-## API Behavior Summary
+## Current Status
 
-- `get(input)`: alias of `probe(input)` for convenience.
-- `probe(input)`: detects media/container characteristics and returns technical stream info for supported formats.
-- `readMetadata(input)`: returns derived probe metadata plus embedded metadata where supported (WAV LIST/INFO, AIFF text chunks, MP3 ID3v1, OGG/FLAC comments), then merges sidecar entries as fallback when present.
-- `writeMetadata(input, metadata)`: validates and writes embedded metadata where supported (WAV LIST/INFO, AIFF text chunks, MP3 ID3v1); for embedded-capable formats, stale sidecar files are removed; sidecar remains for compatibility/non-embedded paths.
-- `extractAudio(input, outputDir, options)`: validates audio input and writes extracted output into `outputDir`.
-- `convert(input, output, options)`: performs routed conversion behavior and enforces `overwrite` handling.
-- `play(input, options)`: supports dry-run playback, routes WAV/AIFF-family playback through an internal Java sampled backend, and falls back to optional system default app launch.
-- `validate(input, options)`: validates existence, max size, and optional strict parser-level checks.
+CodecMedia is usable for the implemented routes listed in this README, but the project is still evolving.
 
-## Notes and Limitations
+Important status notes:
 
-- Current probing focuses on **technical media info** (mime/type/streams/basic tags).
-- Probe routing now performs a lightweight header-prefix sniff before full decode to reduce unnecessary full-file reads for clearly unsupported/unknown inputs.
-- `readMetadata` supports embedded metadata for WAV (LIST/INFO), AIFF text chunks, MP3 (ID3v1), and OGG/FLAC comments; it is **not** a full embedded tag extractor for advanced tag families (for example ID3v2 APIC/album art).
-- Audio-to-audio conversion is partially implemented with JDK Java Sound targets (`wav`/`aiff`/`au`) plus decode-focused routes (`wav <-> pcm`, `mp3 -> pcm`, `mp3 -> wav`); general compressed-target transcode cases (for example `mp3 -> ogg`) are still not implemented.
-- Implemented decode-focused audio routes:
-- `wav -> pcm`: extracts raw PCM payload from WAV `data` chunk
-- `pcm -> wav`: wraps PCM into PCM WAV container
-- Optional PCM->WAV preset tuning via `ConversionOptions.preset`, for example: `sr=22050,ch=1,bits=16`
-- `mp3 -> pcm` / `mp3 -> wav`: decodes MP3 via selectable backend using `ConversionOptions.preset`, for example: `decoder=javasound` (default), `decoder=pure-java`, `decoder=layer3`
-- Container/unknown conversion routes are intentionally unsupported unless explicitly mapped by the conversion route resolver.
-- TIFF probe currently reads the **first IFD/image** only (multi-page TIFF traversal is not implemented in probe mode).
-- WebP probe currently reports `bitDepth` as an assumed default (`8`) for `VP8`/`VP8L`/`VP8X` unless deeper profile metadata parsing is added.
-- For OpenAL workflows that require OGG from MP3 input, use an external transcoder first (for example ffmpeg), then play the produced OGG.
+- Current version: `1.2.1`
+- Minimum Java version: 17
+- Build tool: Maven
+- Default implementation class is still named `StubCodecMediaEngine`; this name does not mean every feature is a stub, but it is a sign that the implementation is still being consolidated.
+- MP3 decoding through the `pure-java` or `layer3` backend is experimental.
+- General-purpose transcoding is not implemented.
+- Some image conversion routes depend on ImageIO reader/writer support available in the runtime.
 
-## Requirements
+## Installation
 
-- Java 17+
-- Maven 3.9+
+### Prerequisites
 
-## Build
+- JDK 17 or newer
+- Maven 3.9 or newer if building from source
 
-```bash
-mvn clean verify
+### Maven
+
+Add the dependency to your project:
+
+```xml
+<dependency>
+  <groupId>me.tamkungz.codecmedia</groupId>
+  <artifactId>codecmedia</artifactId>
+  <version>1.2.1</version>
+</dependency>
 ```
 
-## Fixture-Driven Tests
+### Gradle
 
-Fixtures are in `src/test/resources`, including:
-
-- `c-major-scale_test_ableton-live.wav`
-- `c-major-scale_test_audacity.mp3`
-- `c-major-scale_test_ffmpeg.ogg`
-- `c-major-scale_test_web-convert_mono.mp3`
-- `mp4_test.mp4`
-- `png_test.png`
-
-Run probe fixture test only:
-
-```bash
-mvn -Dtest=CodecMediaPlayTest test
+```kotlin
+dependencies {
+    implementation("me.tamkungz.codecmedia:codecmedia:1.2.1")
+}
 ```
 
-Run facade-focused tests only:
+### Build From Source
 
 ```bash
-mvn -Dtest=CodecMediaFacadeTest test
+git clone https://github.com/CodecMediaLib/codecmedia-java.git
+cd codecmedia-java
+mvn -Dgpg.skip=true clean verify
 ```
 
-## Full Test Suite
+`-Dgpg.skip=true` is useful for local development because the project signs release artifacts during `verify`.
+
+## Quick Start
+
+### Probe And Validate A File
+
+```java
+import java.nio.file.Path;
+
+import me.tamkungz.codecmedia.CodecMedia;
+import me.tamkungz.codecmedia.CodecMediaEngine;
+import me.tamkungz.codecmedia.options.ValidationOptions;
+
+public class ProbeExample {
+    public static void main(String[] args) throws Exception {
+        CodecMediaEngine media = CodecMedia.createDefault();
+        Path input = Path.of(args.length > 0 ? args[0] : "src/test/resources/png_test.png");
+
+        var probe = media.probe(input);
+        System.out.println(probe.mimeType());
+        System.out.println(probe.mediaType());
+        System.out.println(probe.primaryCodec().orElse("unknown"));
+
+        var validation = media.validate(input, ValidationOptions.defaults());
+        System.out.println("valid=" + validation.valid());
+    }
+}
+```
+
+### Convert An Image
+
+```java
+import java.nio.file.Path;
+
+import me.tamkungz.codecmedia.CodecMedia;
+import me.tamkungz.codecmedia.options.ConversionOptions;
+
+public class ImageConvertExample {
+    public static void main(String[] args) throws Exception {
+        var media = CodecMedia.createDefault();
+
+        var result = media.convert(
+                Path.of("src/test/resources/png_test.png"),
+                Path.of("target/example-output.jpg"),
+                new ConversionOptions("jpg", "balanced", true)
+        );
+
+        System.out.println(result.outputFile());
+        System.out.println(result.format());
+    }
+}
+```
+
+### Read And Write Metadata
+
+```java
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Map;
+
+import me.tamkungz.codecmedia.CodecMedia;
+import me.tamkungz.codecmedia.model.Metadata;
+
+public class MetadataExample {
+    public static void main(String[] args) throws Exception {
+        var media = CodecMedia.createDefault();
+        Path input = Path.of("src/test/resources/png_test.png");
+        Path workFile = Path.of("target/metadata-example.png");
+
+        Files.createDirectories(workFile.getParent());
+        Files.copy(input, workFile, StandardCopyOption.REPLACE_EXISTING);
+
+        media.writeMetadata(workFile, new Metadata(Map.of("title", "Example")));
+        Metadata metadata = media.readMetadata(workFile);
+
+        System.out.println(metadata.entries());
+    }
+}
+```
+
+For formats without embedded write support, metadata is written to a sibling sidecar file named `<file>.codecmedia.properties`.
+
+## Configuration
+
+Configuration is passed through option records.
+
+### `ValidationOptions`
+
+- `strict` - when `true`, runs parser-level checks for supported formats
+- `maxBytes` - rejects files larger than this size when greater than `0`
+- `ValidationOptions.defaults()` - non-strict validation with a 500 MiB size limit
+
+Example:
+
+```java
+var options = new ValidationOptions(true, 64L * 1024L * 1024L);
+```
+
+### `ConversionOptions`
+
+- `targetFormat` - required output format, such as `jpg`, `wav`, `pcm`, or `m4a`
+- `preset` - route-specific string, defaulting to `balanced`
+- `overwrite` - controls whether existing output files may be replaced
+- `ConversionOptions.defaults()` - defaults to target format `m4a`, preset `balanced`, and `overwrite=false`
+
+Known preset tokens:
+
+- `pcm -> wav`: `sr=<sampleRate>`, `ch=<channels>`, `bits=<bitsPerSample>`
+- `mp3 -> pcm` and `mp3 -> wav`: `decoder=javasound`, `decoder=pure-java`, or `decoder=layer3`
+
+### `AudioExtractOptions`
+
+- `targetFormat` - must match the source format in the current implementation
+- `bitrateKbps` - accepted by the options record, but no transcoding is performed by `extractAudio`
+- `streamIndex` - accepted by the options record, but multi-stream extraction is not implemented
+- `AudioExtractOptions.defaults()` - uses source format resolution in the engine
+
+### `PlaybackOptions`
+
+- `dryRun` - returns a successful playback result without opening or playing the file
+- `allowExternalApp` - allows fallback to the operating system default application
+- `PlaybackOptions.defaults()` - `dryRun=false`, `allowExternalApp=true`
+
+## Architecture
+
+CodecMedia is organized around a small public facade and internal format-specific components.
+
+- `CodecMedia` creates the default engine.
+- `CodecMediaEngine` defines the public API contract.
+- `StubCodecMediaEngine` coordinates probing, validation, metadata, extraction, conversion, and playback.
+- Internal parser packages handle audio, image, and container formats.
+- `DefaultConversionHub` routes conversions to specific converters or explicit unsupported-route failures.
+- Image conversion uses JDK `ImageIO` and any reader/writer plugins present at runtime.
+- Audio playback uses Java Sound for WAV/AIFF-family inputs and can fall back to `java.awt.Desktop`.
+
+## Supported Features
+
+### Probing
+
+Probe results include the detected MIME type, extension, media type, duration when available, stream information, and format-specific tags.
+
+Supported probe formats:
+
+- Audio: `mp3`, `ogg`, `wav`, `aif`, `aiff`, `aifc`, `flac`, `m4a`
+- Images: `png`, `jpg`, `jpeg`, `webp`, `bmp`, `tif`, `tiff`, `heic`, `heif`, `avif`
+- Video/containers: `mov`, `mp4`, `webm`
+
+### Validation
+
+Validation supports:
+
+- File existence checks
+- Maximum file size checks
+- Optional strict parser checks for `mp3`, `ogg`, `wav`, `aif`, `aiff`, `aifc`, `flac`, `png`, `jpg`, `jpeg`, `mov`, `mp4`, `m4a`, `webm`, `webp`, `bmp`, `tif`, `tiff`, `heic`, `heif`, and `avif`
+
+Strict validation currently reads the full file and is limited to files up to 32 MiB.
+
+### Metadata
+
+`readMetadata` always includes base probe fields:
+
+- `mimeType`
+- `extension`
+- `mediaType`
+
+Embedded metadata support:
+
+- WAV: read/write RIFF `LIST/INFO`
+- AIFF/AIF/AIFC: read/write `NAME`, `AUTH`, `(c) `, and `ANNO` text chunks
+- MP3: read/write ID3v1
+- OGG: read Vorbis/Opus comments
+- FLAC: read Vorbis comments
+
+Sidecar metadata support:
+
+- Unsupported embedded write formats use `<file>.codecmedia.properties`.
+- Embedded metadata is treated as canonical where supported.
+- Sidecar values are merged as fallback values for non-core keys.
+
+### Audio Extraction
+
+Current audio extraction is a copy workflow:
+
+- Input must be detected as `MediaType.AUDIO`.
+- Output is written as `<baseName>_audio.<sourceExtension>` inside the output directory.
+- Requested target format must match the source format.
+- Format conversion during extraction is not implemented.
+
+### Conversion
+
+Implemented conversion routes:
+
+- Same-format copy for matching source and target extensions
+- Image-to-image conversion for `png`, `jpg`, `jpeg`, `webp`, `bmp`, `tif`, `tiff`, `heic`, `heif`, and `avif`
+- `wav -> pcm` by extracting the WAV `data` chunk from PCM WAV files
+- `pcm -> wav` by wrapping raw PCM bytes in a WAV container
+- `mp3 -> pcm` through a selected decoder backend
+- `mp3 -> wav` through a selected decoder backend
+- Java Sound audio output to `wav`, `aif`, `aiff`, `aifc`, or `au` when the runtime supports the source and target combination
+- `mp4 -> m4a` and `mov -> m4a` remux when an M4A-compatible audio track is present
+
+Runtime-dependent routes:
+
+- WebP image decode/encode requires ImageIO WebP support.
+- TIFF image decode/encode may require ImageIO TIFF support, depending on the JDK/runtime.
+- HEIF, HEIC, and AVIF image decode/encode require compatible ImageIO support.
+- Java Sound audio conversion depends on audio service providers available in the runtime.
+
+### Playback
+
+Playback supports:
+
+- Dry-run mode for all known media types
+- Java sampled playback for WAV/AIFF-family audio when Java Sound can open the file
+- Desktop-open fallback through `java.awt.Desktop` when enabled and supported by the platform
+
+## Limitations
+
+- Probe output is technical media information, not a complete metadata catalog.
+- ID3v2, album art/APIC extraction, and advanced tag families are not fully supported.
+- General compressed audio transcoding, such as `mp3 -> ogg`, is not implemented.
+- Generic video-to-audio conversion is not implemented, except the implemented MP4/MOV to M4A remux route.
+- Video-to-video conversion is not implemented.
+- Audio-to-image album-art extraction is not implemented.
+- `extractAudio` does not transcode and does not select arbitrary streams.
+- TIFF probing reads the first IFD/image only.
+- WebP probing reports an assumed bit depth for VP8, VP8L, and VP8X when deeper profile metadata is not parsed.
+- HEIF, HEIC, AVIF, WebP, and TIFF image conversion depends on runtime ImageIO support.
+- Strict validation is limited to files up to 32 MiB.
+
+## Development
+
+Clone and verify the project locally:
 
 ```bash
-mvn test
+git clone https://github.com/CodecMediaLib/codecmedia-java.git
+cd codecmedia-java
+mvn -Dgpg.skip=true clean verify
 ```
+
+Useful commands:
+
+```bash
+mvn -Dgpg.skip=true test
+mvn -Dgpg.skip=true -DskipTests package
+mvn -Dgpg.skip=true clean verify
+```
+
+Project layout:
+
+- `src/main/java/me/tamkungz/codecmedia` - public API and implementation
+- `src/main/java/me/tamkungz/codecmedia/internal` - parsers, converters, and engine internals
+- `src/test/java` - unit and facade tests
+- `src/test/resources` - test fixtures
+- `.github/workflows` - CI and deeper test workflows
+
+## Testing
+
+Run the full test suite:
+
+```bash
+mvn -Dgpg.skip=true test
+```
+
+Run the same verify phase used by CI without signing artifacts:
+
+```bash
+mvn -Dgpg.skip=true clean verify
+```
+
+Run focused tests:
+
+```bash
+mvn -Dgpg.skip=true -Dtest=CodecMediaFacadeTest test
+mvn -Dgpg.skip=true -Dtest=CodecMediaPlayTest test
+mvn -Dgpg.skip=true -Dtest=Mp3PcmWavConverterTest test
+```
+
+CI currently verifies Java 17 and Java 21 with:
+
+```bash
+mvn -B -Dgpg.skip=true clean verify
+```
+
+## Roadmap
+
+Implemented features and planned work are separated below to avoid implying unsupported behavior.
+
+### Implemented
+
+- Probing for the supported audio, image, and video/container formats listed above
+- Strict parser validation for supported formats
+- Embedded metadata read/write for WAV, AIFF-family files, and MP3 ID3v1
+- Embedded metadata read for OGG and FLAC comments
+- Sidecar metadata fallback
+- Limited conversion routes listed in [Conversion](#conversion)
+- Dry-run, Java sampled, and desktop-open playback workflows
+
+### Planned
+
+- Generic video-to-audio conversion route
+- Audio-to-image album-art extraction route
+- Video-to-video conversion route
+- Broader audio transcoding support beyond Java Sound, WAV/PCM, and MP3 decode routes
+
+### TODO
+
+- TODO: Document the exact metadata key mapping for each embedded metadata format.
+- TODO: Document the supported ImageIO plugin combinations used for WebP, TIFF, HEIF, HEIC, and AVIF conversion.
+- TODO: Document release and publishing steps for maintainers.
+- TODO: Decide whether `StubCodecMediaEngine` should be renamed now that it contains implemented behavior.
+
+## Contributing
+
+Contributions should keep documentation aligned with implemented behavior.
+
+Before opening a pull request:
+
+- Run `mvn -Dgpg.skip=true test`.
+- Add or update tests for parser, conversion, metadata, or facade behavior changes.
+- Update this README and `CHANGELOG.md` when user-visible behavior changes.
+- Mark incomplete or runtime-dependent behavior clearly.
+- Avoid documenting planned features as supported features.
+
+Issues and pull requests are tracked at:
+
+- https://github.com/CodecMediaLib/codecmedia-java/issues
 
 ## License
 
-This project is licensed under the Apache License 2.0.
-
----
-
-*by TamKungZ_*
+CodecMedia is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
