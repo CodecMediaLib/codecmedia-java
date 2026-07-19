@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://codecmedia.tamkungz.me/CodecMedia_Full_Logo.png" width="50%" alt="CodecMedia Logo">
+  <img src="https://pub-df28fb9f69aa4326a1c6e10fb1f2abdc.r2.dev/assets-image/codecmedia/CodecMedia_Full_Logo.png" width="50%" alt="CodecMedia Logo">
 </p>
 
 # CodecMedia
