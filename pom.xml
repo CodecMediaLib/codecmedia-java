@@ -15,7 +15,7 @@
     A lightweight Java library for inspecting, validating, and processing media files.  
     Supports metadata extraction, container parsing, audio/video/image extraction, and format conversion.
   </description>
-  <url>https://codecmedia.tamkungz.me/</url>
+  <url>https://github.com/CodecMediaLib/codecmedia-java/</url>
 
   <organization>
     <name>CodecMediaLib</name>
@@ -76,9 +76,6 @@
     <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss'Z'</maven.build.timestamp.format>
 
     <gpg.keyname>7311416EAA9848E4</gpg.keyname>
-
-    <project.logo.url>https://codecmedia.tamkungz.me/CodecMedia_Icon_Logo.png</project.logo.url>
-    <project.full.logo.url>https://codecmedia.tamkungz.me/CodecMedia_Full_Logo.png</project.full.logo.url>
   </properties>
 
   <dependencies>
