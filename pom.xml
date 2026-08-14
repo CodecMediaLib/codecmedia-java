@@ -46,7 +46,7 @@
     <developer>
       <id>tamkungz</id>
       <name>TamKungZ_</name>
-      <email>kittiwut.pimpromma@gmail.com</email>
+      <email>dev@tamkungz.me</email>
       <roles>
         <role>owner</role>
         <role>developer</role>
@@ -75,7 +75,7 @@
     <project.build.outputTimestamp>${maven.build.timestamp}</project.build.outputTimestamp>
     <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss'Z'</maven.build.timestamp.format>
 
-    <gpg.keyname>7311416EAA9848E4</gpg.keyname>
+    <gpg.keyname>6157503BFCD109A4</gpg.keyname>
   </properties>
 
   <dependencies>
