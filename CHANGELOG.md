@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [1.2.2] - 2026-08-14
+
+### Fixed
+- Made [`WavParser.isLikelyWav()`](src/main/java/me/tamkungz/codecmedia/internal/audio/wav/WavParser.java) null-safe.
+- Corrected shifted `WAVE_FORMAT_EXTENSIBLE` subtype GUID-tail offsets in [`WavParser`](src/main/java/me/tamkungz/codecmedia/internal/audio/wav/WavParser.java), so valid PCM/IEEE-float extensible GUIDs are checked at their actual byte positions.
+- Fixed RF64 metadata traversal in [`WavParser.readInfoMetadata()`](src/main/java/me/tamkungz/codecmedia/internal/audio/wav/WavParser.java) to resolve the `data` chunk `0xFFFFFFFF` sentinel through `ds64` instead of treating it as an out-of-bounds chunk.
+- Fixed RF64 WAV -> PCM extraction in [`WavPcmConverter`](src/main/java/me/tamkungz/codecmedia/internal/convert/WavPcmConverter.java) to use unsigned chunk sizes and the RF64 `ds64` data size.
+- Changed [`PureJavaMp3Decoder`](src/main/java/me/tamkungz/codecmedia/internal/audio/mp3/PureJavaMp3Decoder.java) to fail closed instead of synthesizing a 440 Hz PCM tone. The previous experimental output preserved frame timing but was not decoded source audio and could therefore be mistaken for valid conversion output.
+
+### Verification
+- Java tests were intentionally not run for these companion fixes, per the requested scope.
+
 ## [1.2.1] - 2026-05-07
 
 ### Changed

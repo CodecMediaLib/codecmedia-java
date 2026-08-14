@@ -24,20 +24,42 @@ CodecMedia is not a complete transcoding framework. Unsupported routes fail expl
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Current Status](#current-status)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Architecture](#architecture)
-- [Supported Features](#supported-features)
-- [Limitations](#limitations)
-- [Development](#development)
-- [Testing](#testing)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
+- [CodecMedia](#codecmedia)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Features](#features)
+  - [Current Status](#current-status)
+  - [Installation](#installation)
+    - [Prerequisites](#prerequisites)
+    - [Maven](#maven)
+    - [Gradle](#gradle)
+    - [Build From Source](#build-from-source)
+  - [Quick Start](#quick-start)
+    - [Probe And Validate A File](#probe-and-validate-a-file)
+    - [Convert An Image](#convert-an-image)
+    - [Read And Write Metadata](#read-and-write-metadata)
+  - [Configuration](#configuration)
+    - [`ValidationOptions`](#validationoptions)
+    - [`ConversionOptions`](#conversionoptions)
+    - [`AudioExtractOptions`](#audioextractoptions)
+    - [`PlaybackOptions`](#playbackoptions)
+  - [Architecture](#architecture)
+  - [Supported Features](#supported-features)
+    - [Probing](#probing)
+    - [Validation](#validation)
+    - [Metadata](#metadata)
+    - [Audio Extraction](#audio-extraction)
+    - [Conversion](#conversion)
+    - [Playback](#playback)
+  - [Limitations](#limitations)
+  - [Development](#development)
+  - [Testing](#testing)
+  - [Roadmap](#roadmap)
+    - [Implemented](#implemented)
+    - [Planned](#planned)
+    - [TODO](#todo)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Overview
 
@@ -59,7 +81,7 @@ Main API methods:
 ## Features
 
 - Java 17 API using `Path` and Java records
-- Maven artifact: `me.tamkungz.codecmedia:codecmedia:1.2.1`
+- Maven artifact: `me.tamkungz.codecmedia:codecmedia:1.2.2`
 - No runtime dependencies declared in `pom.xml`
 - Parser-backed probing for selected media formats
 - Strict validation for supported parsers
@@ -74,11 +96,11 @@ CodecMedia is usable for the implemented routes listed in this README, but the p
 
 Important status notes:
 
-- Current version: `1.2.1`
+- Current version: `1.2.2`
 - Minimum Java version: 17
 - Build tool: Maven
 - Default implementation class is still named `StubCodecMediaEngine`; this name does not mean every feature is a stub, but it is a sign that the implementation is still being consolidated.
-- MP3 decoding through the `pure-java` or `layer3` backend is experimental.
+- `decoder=pure-java` / `decoder=layer3` is currently disabled and fails explicitly. Older versions synthesized a timing-correct 440 Hz PCM signal rather than decoding source MP3 audio, which was misleading. Use `decoder=javasound` for real decoding.
 - General-purpose transcoding is not implemented.
 - Some image conversion routes depend on ImageIO reader/writer support available in the runtime.
 
@@ -97,7 +119,7 @@ Add the dependency to your project:
 <dependency>
   <groupId>me.tamkungz.codecmedia</groupId>
   <artifactId>codecmedia</artifactId>
-  <version>1.2.1</version>
+  <version>1.2.2</version>
 </dependency>
 ```
 
@@ -105,7 +127,7 @@ Add the dependency to your project:
 
 ```kotlin
 dependencies {
-    implementation("me.tamkungz.codecmedia:codecmedia:1.2.1")
+    implementation("me.tamkungz.codecmedia:codecmedia:1.2.2")
 }
 ```
 
@@ -226,7 +248,7 @@ var options = new ValidationOptions(true, 64L * 1024L * 1024L);
 Known preset tokens:
 
 - `pcm -> wav`: `sr=<sampleRate>`, `ch=<channels>`, `bits=<bitsPerSample>`
-- `mp3 -> pcm` and `mp3 -> wav`: `decoder=javasound`, `decoder=pure-java`, or `decoder=layer3`
+- `mp3 -> pcm` and `mp3 -> wav`: use `decoder=javasound`; `decoder=pure-java` / `decoder=layer3` is retained as an explicit unsupported placeholder until a real Layer III decoder exists
 
 ### `AudioExtractOptions`
 
