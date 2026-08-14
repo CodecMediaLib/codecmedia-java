@@ -123,7 +123,7 @@ public final class WavParser {
     }
 
     public static boolean isLikelyWav(byte[] bytes) {
-        return bytes.length >= 12
+        return bytes != null && bytes.length >= 12
                 && ((bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F')
                 || (bytes[0] == 'R' && bytes[1] == 'F' && bytes[2] == '6' && bytes[3] == '4'))
                 && bytes[8] == 'W'
@@ -137,12 +137,34 @@ public final class WavParser {
             throw new CodecMediaException("Not a WAV/RIFF file");
         }
 
+        boolean isRf64 = bytes[0] == 'R' && bytes[1] == 'F' && bytes[2] == '6' && bytes[3] == '4';
+        Long ds64DataSize = null;
         Map<String, String> out = new LinkedHashMap<>();
         int offset = 12;
         while (offset + 8 <= bytes.length) {
             String chunkId = readAscii(bytes, offset, 4);
-            long chunkSize = readLeUInt32(bytes, offset + 4);
+            long rawChunkSize = readLeUInt32(bytes, offset + 4);
             int chunkDataStart = offset + 8;
+
+            if ("ds64".equals(chunkId)) {
+                if (!isRf64 || rawChunkSize < 16 || (long) chunkDataStart + 16 > bytes.length) {
+                    throw new CodecMediaException("Invalid RF64 ds64 chunk");
+                }
+                long parsedDataSize = readLeLong(bytes, chunkDataStart + 8);
+                if (parsedDataSize < 0) {
+                    throw new CodecMediaException("RF64 data size is too large");
+                }
+                ds64DataSize = parsedDataSize;
+            }
+
+            long chunkSize = rawChunkSize;
+            if (isRf64 && "data".equals(chunkId) && rawChunkSize == 0xFFFFFFFFL) {
+                if (ds64DataSize == null) {
+                    throw new CodecMediaException("RF64 data chunk uses 0xFFFFFFFF size but ds64 is missing");
+                }
+                chunkSize = ds64DataSize;
+            }
+
             long chunkDataEnd = chunkDataStart + chunkSize;
             if (chunkDataEnd < chunkDataStart || chunkDataEnd > bytes.length) {
                 throw new CodecMediaException("WAV chunk exceeds file bounds: " + chunkId);
@@ -259,18 +281,24 @@ public final class WavParser {
 
         int subFormatOffset = fmtOffset + 24;
         int subType = readLeShort(bytes, subFormatOffset);
+        // KSDATAFORMAT_SUBTYPE_PCM / KSDATAFORMAT_SUBTYPE_IEEE_FLOAT use
+        // {0000000x-0000-0010-8000-00AA00389B71}. The GUID is stored with
+        // little-endian Data1/Data2/Data3 fields, so validate all 16 bytes at
+        // their actual offsets instead of the previously shifted tail check.
         boolean validGuid = bytes[subFormatOffset + 2] == 0
                 && bytes[subFormatOffset + 3] == 0
-                && bytes[subFormatOffset + 4] == 0x10
+                && bytes[subFormatOffset + 4] == 0
                 && bytes[subFormatOffset + 5] == 0
-                && (bytes[subFormatOffset + 6] & 0xFF) == 0x80
+                && (bytes[subFormatOffset + 6] & 0xFF) == 0x10
                 && bytes[subFormatOffset + 7] == 0
-                && bytes[subFormatOffset + 8] == 0
-                && (bytes[subFormatOffset + 9] & 0xFF) == 0xAA
+                && (bytes[subFormatOffset + 8] & 0xFF) == 0x80
+                && bytes[subFormatOffset + 9] == 0
                 && bytes[subFormatOffset + 10] == 0
-                && (bytes[subFormatOffset + 11] & 0xFF) == 0x38
-                && (bytes[subFormatOffset + 12] & 0xFF) == 0x9B
-                && bytes[subFormatOffset + 13] == 0x71;
+                && (bytes[subFormatOffset + 11] & 0xFF) == 0xAA
+                && bytes[subFormatOffset + 12] == 0
+                && (bytes[subFormatOffset + 13] & 0xFF) == 0x38
+                && (bytes[subFormatOffset + 14] & 0xFF) == 0x9B
+                && bytes[subFormatOffset + 15] == 0x71;
         if (!validGuid || (subType != WAVE_FORMAT_PCM && subType != WAVE_FORMAT_IEEE_FLOAT)) {
             throw new CodecMediaException("Unsupported WAV extensible sub-format: 0x" + Integer.toHexString(subType));
         }

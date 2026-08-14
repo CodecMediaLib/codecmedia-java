@@ -74,21 +74,42 @@ public final class WavPcmConverter implements MediaConverter {
         }
         String riff = new String(wavBytes, 0, 4, StandardCharsets.US_ASCII);
         String wave = new String(wavBytes, 8, 4, StandardCharsets.US_ASCII);
-        if ((!"RIFF".equals(riff) && !"RF64".equals(riff)) || !"WAVE".equals(wave)) {
+        boolean isRf64 = "RF64".equals(riff);
+        if ((!"RIFF".equals(riff) && !isRf64) || !"WAVE".equals(wave)) {
             throw new CodecMediaException("Invalid WAV header");
         }
 
         int offset = 12;
         boolean sawFmt = false;
+        Long ds64DataSize = null;
         while (offset + 8 <= wavBytes.length) {
             String chunkId = new String(wavBytes, offset, 4, StandardCharsets.US_ASCII);
-            int chunkSize = readLeInt(wavBytes, offset + 4);
-            if (chunkSize < 0) {
-                throw new CodecMediaException("Unsupported WAV chunk size");
-            }
+            long rawChunkSize = readLeUInt32(wavBytes, offset + 4);
             int dataStart = offset + 8;
+
+            if ("ds64".equals(chunkId)) {
+                if (!isRf64 || rawChunkSize < 16 || (long) dataStart + 16 > wavBytes.length) {
+                    throw new CodecMediaException("Invalid RF64 ds64 chunk");
+                }
+                long parsedDataSize = ByteBuffer.wrap(wavBytes, dataStart + 8, 8)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .getLong();
+                if (parsedDataSize < 0) {
+                    throw new CodecMediaException("RF64 data size is too large");
+                }
+                ds64DataSize = parsedDataSize;
+            }
+
+            long chunkSize = rawChunkSize;
+            if (isRf64 && "data".equals(chunkId) && rawChunkSize == 0xFFFFFFFFL) {
+                if (ds64DataSize == null) {
+                    throw new CodecMediaException("RF64 data chunk uses 0xFFFFFFFF size but ds64 is missing");
+                }
+                chunkSize = ds64DataSize;
+            }
+
             long dataEndLong = (long) dataStart + chunkSize;
-            if (dataEndLong > wavBytes.length) {
+            if (dataEndLong < dataStart || dataEndLong > wavBytes.length) {
                 throw new CodecMediaException("WAV chunk exceeds file bounds: " + chunkId);
             }
 
@@ -107,15 +128,17 @@ public final class WavPcmConverter implements MediaConverter {
                 if (!sawFmt) {
                     throw new CodecMediaException("Invalid WAV: missing fmt chunk before data");
                 }
-                int dataEnd = (int) dataEndLong;
-                byte[] out = new byte[chunkSize];
-                System.arraycopy(wavBytes, dataStart, out, 0, chunkSize);
+                if (chunkSize > Integer.MAX_VALUE) {
+                    throw new CodecMediaException("WAV data chunk is too large");
+                }
+                byte[] out = new byte[(int) chunkSize];
+                System.arraycopy(wavBytes, dataStart, out, 0, (int) chunkSize);
                 return out;
             }
 
-            long paddedSize = (chunkSize % 2 == 0) ? chunkSize : (long) chunkSize + 1L;
+            long paddedSize = (chunkSize % 2 == 0) ? chunkSize : chunkSize + 1L;
             long nextOffset = (long) dataStart + paddedSize;
-            if (nextOffset > Integer.MAX_VALUE || nextOffset > wavBytes.length) {
+            if (nextOffset < dataStart || nextOffset > Integer.MAX_VALUE || nextOffset > wavBytes.length) {
                 throw new CodecMediaException("WAV chunk offset overflow");
             }
             offset = (int) nextOffset;
@@ -160,14 +183,15 @@ public final class WavPcmConverter implements MediaConverter {
         return b.array();
     }
 
-    private static int readLeInt(byte[] bytes, int offset) throws CodecMediaException {
+    private static long readLeUInt32(byte[] bytes, int offset) throws CodecMediaException {
         if (offset < 0 || offset + 4 > bytes.length) {
             throw new CodecMediaException("Unexpected end of WAV data");
         }
-        return (bytes[offset] & 0xFF)
-                | ((bytes[offset + 1] & 0xFF) << 8)
-                | ((bytes[offset + 2] & 0xFF) << 16)
-                | ((bytes[offset + 3] & 0xFF) << 24);
+        long b0 = bytes[offset] & 0xFFL;
+        long b1 = bytes[offset + 1] & 0xFFL;
+        long b2 = bytes[offset + 2] & 0xFFL;
+        long b3 = bytes[offset + 3] & 0xFFL;
+        return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
     }
 
     private static int readLeUnsignedShort(byte[] bytes, int offset) throws CodecMediaException {
